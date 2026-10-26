@@ -1,0 +1,41 @@
+[project]
+name = "wb-rag"
+version = "0.1.0"
+description = "Advanced, structure-aware RAG over the World Bank Global Economic Prospects (June 2025) report"
+requires-python = ">=3.11,<3.13"
+dependencies = [
+    "fastembed>=0.4",
+    # Last onnxruntime with Intel-macOS wheels; newer versions are arm64-only on macOS
+    "onnxruntime>=1.20,<1.24 ; sys_platform == 'darwin' and platform_machine == 'x86_64'",
+    "pymupdf>=1.24",
+    "pymupdf4llm>=0.0.17",
+    "rank-bm25>=0.2.2",
+    "numpy>=1.26",
+    "httpx>=0.27",
+    "pydantic>=2.7",
+    "pydantic-settings>=2.3",
+    "python-dotenv>=1.0",
+    "typer>=0.12",
+    "fastapi>=0.111",
+    "uvicorn>=0.30",
+]
+
+[project.scripts]
+wb-rag = "wb_rag.cli:app"
+
+[dependency-groups]
+dev = ["pytest>=8"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.uv]
+required-environments = ["sys_platform == 'darwin' and platform_machine == 'x86_64'"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/wb_rag"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]

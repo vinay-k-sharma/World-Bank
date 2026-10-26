@@ -1,0 +1,408 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GEP Report Assistant</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --panel: #ffffff; --panel-2: #f0f2f5; --border: #dfe3e8;
+    --text: #1b2430; --muted: #5d6b7a; --accent: #1f5fae; --accent-soft: #e5eef9;
+    --user: #1f5fae; --user-text: #ffffff; --danger: #b42318; --danger-soft: #fdecea;
+    --shadow: 0 1px 2px rgba(16,24,40,.06), 0 1px 3px rgba(16,24,40,.08);
+    --radius: 14px;
+    --font: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0f141a; --panel: #161d25; --panel-2: #1c252f; --border: #2a3541;
+      --text: #e6ebf0; --muted: #9aa8b6; --accent: #6ea8ff; --accent-soft: #1b2a3d;
+      --user: #2d6cc0; --user-text: #ffffff; --danger: #ff8a80; --danger-soft: #3a1d1d;
+      --shadow: 0 1px 2px rgba(0,0,0,.4);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0f141a; --panel: #161d25; --panel-2: #1c252f; --border: #2a3541;
+    --text: #e6ebf0; --muted: #9aa8b6; --accent: #6ea8ff; --accent-soft: #1b2a3d;
+    --user: #2d6cc0; --user-text: #ffffff; --danger: #ff8a80; --danger-soft: #3a1d1d;
+    --shadow: 0 1px 2px rgba(0,0,0,.4);
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body { background: var(--bg); color: var(--text); font: 15px/1.55 var(--font); }
+  button, textarea, select { font: inherit; color: inherit; }
+
+  .app { display: grid; grid-template-columns: 280px 1fr; height: 100vh; }
+  aside { background: var(--panel); border-right: 1px solid var(--border); padding: 20px 16px; display: flex; flex-direction: column; gap: 22px; overflow-y: auto; }
+  .brand { display: flex; gap: 10px; align-items: center; }
+  .brand-mark { width: 34px; height: 34px; border-radius: 9px; background: var(--accent); color: #fff; display: grid; place-items: center; font-weight: 700; font-size: 14px; }
+  .brand h1 { font-size: 15px; margin: 0; line-height: 1.2; }
+  .brand p { margin: 0; color: var(--muted); font-size: 12.5px; }
+  .label { font-size: 11.5px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 8px; }
+  .seg { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; }
+  .seg button { border: 1px solid var(--border); background: var(--panel); padding: 7px 8px; border-radius: 9px; cursor: pointer; font-size: 13px; }
+  .seg button[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); font-weight: 600; }
+  .examples { display: flex; flex-direction: column; gap: 6px; }
+  .examples button { text-align: left; border: 1px solid var(--border); background: var(--panel); border-radius: 10px; padding: 8px 10px; cursor: pointer; font-size: 13px; color: var(--text); }
+  .examples button:hover, .seg button:hover { border-color: var(--accent); }
+  .new-chat { border: 1px solid var(--border); background: var(--panel-2); border-radius: 10px; padding: 9px 12px; cursor: pointer; font-weight: 600; }
+  .status { margin-top: auto; font-size: 12px; color: var(--muted); display: flex; flex-direction: column; gap: 4px; }
+  .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #9aa8b6; margin-right: 6px; }
+  .dot.ok { background: #12b76a; } .dot.bad { background: var(--danger); }
+
+  main { display: flex; flex-direction: column; min-width: 0; height: 100vh; }
+  .topbar { display: none; }
+  .scroll { flex: 1; overflow-y: auto; }
+  .thread { max-width: 820px; margin: 0 auto; padding: 28px 20px 24px; display: flex; flex-direction: column; gap: 22px; }
+
+  .welcome { text-align: center; padding: 8vh 8px 0; }
+  .welcome h2 { font-size: 26px; margin: 0 0 8px; letter-spacing: -.01em; }
+  .welcome p { color: var(--muted); margin: 0 auto 26px; max-width: 520px; }
+  .cards { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; text-align: left; }
+  .cards button { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; cursor: pointer; box-shadow: var(--shadow); }
+  .cards button:hover { border-color: var(--accent); }
+  .cards strong { display: block; font-size: 13px; color: var(--accent); margin-bottom: 2px; }
+  .cards span { font-size: 14px; }
+
+  .msg { display: flex; gap: 12px; }
+  .msg.user { justify-content: flex-end; }
+  .bubble { max-width: 100%; }
+  .msg.user .bubble { background: var(--user); color: var(--user-text); padding: 10px 14px; border-radius: var(--radius) var(--radius) 4px var(--radius); max-width: 80%; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .avatar { flex: 0 0 30px; height: 30px; border-radius: 8px; background: var(--accent-soft); color: var(--accent); display: grid; place-items: center; font-size: 12px; font-weight: 700; }
+  .msg.bot .bubble { flex: 1; min-width: 0; background: var(--panel); border: 1px solid var(--border); border-radius: 4px var(--radius) var(--radius) var(--radius); padding: 14px 16px; box-shadow: var(--shadow); }
+  .answer p { margin: 0 0 10px; } .answer p:last-child { margin-bottom: 0; }
+  .answer ul, .answer ol { margin: 0 0 10px; padding-left: 22px; }
+  .answer li { margin: 3px 0; }
+  .answer sup a { font-size: 11px; font-weight: 700; text-decoration: none; color: var(--accent); background: var(--accent-soft); border-radius: 5px; padding: 0 4px; margin-left: 1px; }
+  .notfound { color: var(--muted); font-style: italic; }
+  .plan { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+  .plan span { font-size: 11.5px; color: var(--muted); border: 1px solid var(--border); border-radius: 999px; padding: 1px 8px; }
+  .error { background: var(--danger-soft); color: var(--danger); border-color: transparent !important; }
+
+  .sources { margin-top: 14px; border-top: 1px solid var(--border); padding-top: 12px; display: flex; flex-direction: column; gap: 8px; }
+  .src { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: start; background: var(--panel-2); border-radius: 10px; padding: 9px 11px; scroll-margin: 80px; }
+  .src.flash { outline: 2px solid var(--accent); }
+  .src .n { font-weight: 700; font-size: 12px; color: var(--accent); background: var(--accent-soft); border-radius: 6px; padding: 1px 7px; }
+  .src .meta { font-size: 13px; font-weight: 600; }
+  .src .meta small { color: var(--muted); font-weight: 400; }
+  .src blockquote { margin: 4px 0 0; font-size: 13px; color: var(--muted); border-left: 2px solid var(--border); padding-left: 8px; max-height: 4.6em; overflow: hidden; }
+  .src a.open { font-size: 12.5px; color: var(--accent); text-decoration: none; white-space: nowrap; }
+  .src a.open:hover { text-decoration: underline; }
+
+  details.ctx { margin-top: 10px; font-size: 13px; }
+  details.ctx summary { cursor: pointer; color: var(--muted); }
+  .chunk { border: 1px solid var(--border); border-radius: 9px; padding: 8px 10px; margin-top: 8px; }
+  .chunk header { font-size: 12px; color: var(--muted); margin-bottom: 4px; display: flex; gap: 8px; flex-wrap: wrap; }
+  .chunk pre { margin: 0; white-space: pre-wrap; font: 12px/1.5 var(--mono); max-height: 220px; overflow: auto; }
+  .footer-meta { margin-top: 10px; font-size: 12px; color: var(--muted); display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+  .copy { border: none; background: none; color: var(--muted); cursor: pointer; padding: 0; font-size: 12px; }
+  .copy:hover { color: var(--accent); }
+
+  .typing { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 14px; }
+  .dots span { display: inline-block; width: 6px; height: 6px; margin-right: 3px; border-radius: 50%; background: var(--muted); animation: blink 1.2s infinite both; }
+  .dots span:nth-child(2) { animation-delay: .2s; } .dots span:nth-child(3) { animation-delay: .4s; }
+  @keyframes blink { 0%, 80%, 100% { opacity: .25; } 40% { opacity: 1; } }
+
+  .composer { border-top: 1px solid var(--border); background: var(--bg); padding: 14px 20px 18px; }
+  .composer form { max-width: 820px; margin: 0 auto; display: flex; gap: 10px; align-items: flex-end; background: var(--panel); border: 1px solid var(--border); border-radius: 16px; padding: 8px 8px 8px 14px; box-shadow: var(--shadow); }
+  .composer form:focus-within { border-color: var(--accent); }
+  textarea { flex: 1; border: none; outline: none; resize: none; background: transparent; max-height: 180px; padding: 6px 0; }
+  .send { border: none; background: var(--accent); color: #fff; border-radius: 11px; height: 38px; min-width: 38px; padding: 0 14px; cursor: pointer; font-weight: 600; }
+  .send:disabled { opacity: .45; cursor: not-allowed; }
+  .hint { max-width: 820px; margin: 6px auto 0; font-size: 11.5px; color: var(--muted); text-align: center; }
+
+  @media (max-width: 860px) {
+    .app { grid-template-columns: 1fr; }
+    aside { position: fixed; inset: 0 25% 0 0; z-index: 20; transform: translateX(-105%); transition: transform .2s; box-shadow: var(--shadow); }
+    aside.open { transform: none; }
+    .topbar { display: flex; align-items: center; gap: 10px; padding: 10px 16px; border-bottom: 1px solid var(--border); background: var(--panel); }
+    .topbar button { border: 1px solid var(--border); background: var(--panel); border-radius: 8px; padding: 4px 10px; cursor: pointer; }
+    .thread { padding: 18px 16px; }
+    .composer { padding: 10px 16px 14px; }
+    .cards { grid-template-columns: 1fr; }
+    .msg.user .bubble { max-width: 90%; }
+    .src { grid-template-columns: auto 1fr; }
+    .src a.open { grid-column: 2; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <aside id="sidebar">
+    <div class="brand">
+      <div class="brand-mark">WB</div>
+      <div><h1>GEP Report Assistant</h1><p>World Bank · Global Economic Prospects, June 2025</p></div>
+    </div>
+    <button class="new-chat" id="newChat">+ New chat</button>
+    <section>
+      <p class="label">Pipeline</p>
+      <div class="seg" id="scope" style="grid-template-columns:1fr">
+        <button data-scope="advanced" aria-pressed="true" title="Section-aware chunks, routing, reranking, small-to-big context">Advanced</button>
+        <button data-scope="rewrite" aria-pressed="false" title="Advanced + LLM query decomposition">Advanced + query rewrite</button>
+        <button data-scope="baseline" aria-pressed="false" title="Flat 400-token chunks, hybrid search, no rerank">Baseline (flat chunks)</button>
+      </div>
+    </section>
+    <section>
+      <p class="label">Try asking</p>
+      <div class="examples" id="examples"></div>
+    </section>
+    <div class="status" id="status"><span><span class="dot"></span>Connecting…</span></div>
+  </aside>
+
+  <main>
+    <div class="topbar"><button id="menu" aria-label="Open menu">☰</button><strong>GEP Report Assistant</strong></div>
+    <div class="scroll" id="scroll">
+      <div class="thread" id="thread"></div>
+    </div>
+    <div class="composer">
+      <form id="form">
+        <textarea id="input" rows="1" placeholder="Ask about the global outlook, a region, FDI, fragile states, a table or figure…" aria-label="Question"></textarea>
+        <button class="send" id="send" type="submit" aria-label="Send">Ask</button>
+      </form>
+      <p class="hint">Answers come only from the June 2025 Global Economic Prospects, with section and page citations. Each question is answered on its own.</p>
+    </div>
+  </main>
+</div>
+
+<script>
+const EXAMPLES = [
+  ["Outlook", "What is the global growth forecast for 2025 and why was it downgraded?"],
+  ["Regions", "How do the 2025 growth forecasts for East Asia and Pacific and Sub-Saharan Africa compare?"],
+  ["Economy", "What is the growth forecast for Nigeria in 2026?"],
+  ["FDI", "What three-pronged policy strategy does the report recommend for FDI in EMDEs?"],
+  ["Box", "What lessons do post-conflict recoveries in Box 4.1 offer?"],
+  ["Table", "According to Table 2.4.2, what is the projected growth for the United Arab Emirates in 2025?"],
+];
+const STORE_KEY = "wb-rag-chat-v1";
+const $ = (id) => document.getElementById(id);
+const thread = $("thread"), input = $("input"), send = $("send"), scroller = $("scroll");
+let scope = "advanced", busy = false, history = [];
+
+// ---------- persistence (best effort) ----------
+function save() { try { localStorage.setItem(STORE_KEY, JSON.stringify({ history, scope })); } catch {} }
+function load() {
+  try { const s = JSON.parse(localStorage.getItem(STORE_KEY) || "{}"); history = s.history || []; scope = s.scope || "advanced"; }
+  catch { history = []; }
+}
+
+// ---------- rendering helpers ----------
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const NOT_FOUND = "the report does not contain this information";
+
+function inline(s, msgId) {
+  return s
+    .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+    .replace(/(^|[^*])\*([^*\s][^*]*?)\*(?!\*)/g, "$1<em>$2</em>")
+    .replace(/\[(\d{1,2})\]/g, (_, n) => `<sup><a href="#" data-cite="${msgId}-${n}">${n}</a></sup>`);
+}
+
+// Small, safe Markdown subset: paragraphs, bullet/numbered lists, bold, italics, citation markers.
+function renderMarkdown(text, msgId) {
+  const lines = esc(text).split("\n");
+  let html = "", list = null, para = [];
+  const flushPara = () => { if (para.length) { html += `<p>${inline(para.join(" "), msgId)}</p>`; para = []; } };
+  const closeList = () => { if (list) { html += `</${list}>`; list = null; } };
+  for (const raw of lines) {
+    const line = raw.trim();
+    const ul = line.match(/^[-*•]\s+(.*)/), ol = line.match(/^\d+[.)]\s+(.*)/);
+    if (ul || ol) {
+      flushPara();
+      const tag = ul ? "ul" : "ol";
+      if (list !== tag) { closeList(); html += `<${tag}>`; list = tag; }
+      html += `<li>${inline((ul || ol)[1], msgId)}</li>`;
+    } else if (!line) { flushPara(); closeList(); }
+    else { closeList(); para.push(line); }
+  }
+  flushPara(); closeList();
+  return html;
+}
+
+const pdfUrl = (page) => `/files/report.pdf#page=${page}`;
+const pp = (a, b) => a === b ? `p.${a}` : `pp.${a}–${b}`;
+
+function botBubble(inner, extraClass = "") {
+  const wrap = document.createElement("div");
+  wrap.className = "msg bot";
+  wrap.innerHTML = `<div class="avatar">WB</div><div class="bubble ${extraClass}">${inner}</div>`;
+  return wrap;
+}
+
+function renderUser(text) {
+  const wrap = document.createElement("div");
+  wrap.className = "msg user";
+  wrap.innerHTML = `<div class="bubble">${esc(text)}</div>`;
+  thread.appendChild(wrap);
+}
+
+function renderAnswer(entry) {
+  const r = entry.response, id = entry.id;
+  if (entry.error) {
+    thread.appendChild(botBubble(`<strong>Something went wrong.</strong><br>${esc(entry.error)}`, "error"));
+    return;
+  }
+  const declined = r.answer.toLowerCase().includes(NOT_FOUND);
+  const pl = r.plan || {};
+  const chips = [...(pl.regions || []).map((x) => `region: ${x}`), ...(pl.labels || []).map((x) => x.toLowerCase()),
+    ...(pl.chapters || []), ...(pl.broad ? ["broad question"] : []), ...(pl.sub_queries || []).map((x) => `sub-query: ${x}`)];
+  let html = chips.length ? `<div class="plan">${chips.map((c) => `<span>${esc(c)}</span>`).join("")}</div>` : "";
+  html += `<div class="answer ${declined ? "notfound" : ""}">${renderMarkdown(r.answer, id)}</div>`;
+
+  if (r.citations?.length) {
+    html += `<div class="sources"><p class="label" style="margin:0">Sources</p>`;
+    r.citations.forEach((c, i) => {
+      html += `<div class="src" id="cite-${id}-${i + 1}">
+        <span class="n">${i + 1}</span>
+        <div><div class="meta">${pp(c.page, c.page_end)}${c.printed_page ? ` <small>(printed ${esc(c.printed_page)})</small>` : ""} <small>— ${esc(c.section)}</small></div>
+        ${c.quote ? `<blockquote>${esc(c.quote)}</blockquote>` : ""}</div>
+        <a class="open" href="${pdfUrl(c.page)}" target="_blank" rel="noopener">Open page ↗</a>
+      </div>`;
+    });
+    html += `</div>`;
+  }
+
+  if (r.context?.length) {
+    const tok = r.context.reduce((a, b) => a + b.n_tokens, 0);
+    html += `<details class="ctx"><summary>Context sent to the model (${r.context.length} sources · ${tok.toLocaleString()} tokens)</summary>`;
+    for (const b of r.context) {
+      html += `<div class="chunk"><header><strong>[${b.n}]</strong><span>${pp(b.page_start, b.page_end)}</span>
+        <span>${esc(b.section)}</span><span>${b.kind}</span><span>${b.chunk_ids.length} hit${b.chunk_ids.length > 1 ? "s" : ""}</span>
+        <a href="${pdfUrl(b.page_start)}" target="_blank" rel="noopener">open ↗</a></header>
+        <pre>${esc(b.text)}</pre></div>`;
+    }
+    html += `</details>`;
+  }
+  if (r.retrieved?.length) {
+    html += `<details class="ctx"><summary>Ranked retrieval hits (${r.retrieved.length})</summary>`;
+    for (const rc of r.retrieved) {
+      const c = rc.chunk;
+      html += `<div class="chunk"><header><strong>#${rc.rank}</strong><span>${pp(c.page_start, c.page_end)}</span>
+        <span>${esc(c.section_path.join(" › ") || "—")}${c.box ? " › " + esc(c.box) : ""}</span><span>${c.kind}${c.label ? " " + esc(c.label) : ""}</span>
+        <span>score ${rc.score.toFixed(3)}${rc.routed ? " · routed" : ""}</span></header>
+        <pre>${esc(c.text.slice(0, 700))}</pre></div>`;
+    }
+    html += `</details>`;
+  }
+
+  const u = r.usage || {};
+  html += `<div class="footer-meta"><span>${(r.latency_ms / 1000).toFixed(1)}s</span>
+    ${u.input_tokens ? `<span>${u.input_tokens.toLocaleString()} in · ${u.output_tokens.toLocaleString()} out tokens</span>` : ""}
+    <button class="copy" data-copy="${id}">Copy answer</button></div>`;
+  thread.appendChild(botBubble(html));
+}
+
+function renderWelcome() {
+  const div = document.createElement("div");
+  div.className = "welcome";
+  div.innerHTML = `<h2>Ask the Global Economic Prospects</h2>
+    <p>Questions are answered from the World Bank's June 2025 report only (254 pages). Each answer links to the section and page it came from.</p>
+    <div class="cards">${EXAMPLES.slice(0, 4).map(([t, q]) =>
+      `<button data-q="${esc(q)}"><strong>${t}</strong><span>${esc(q)}</span></button>`).join("")}</div>`;
+  thread.appendChild(div);
+}
+
+function renderAll() {
+  thread.innerHTML = "";
+  if (!history.length) renderWelcome();
+  for (const e of history) { renderUser(e.question); renderAnswer(e); }
+  scrollToBottom();
+}
+
+function scrollToBottom() { requestAnimationFrame(() => { scroller.scrollTop = scroller.scrollHeight; }); }
+
+// ---------- actions ----------
+function pipelineOpts() {
+  return { advanced: {}, rewrite: { rewrite: true }, baseline: { preset: "baseline" } }[scope] || {};
+}
+
+async function ask(question) {
+  question = question.trim();
+  if (!question || busy) return;
+  busy = true; send.disabled = true;
+  if (!history.length) thread.innerHTML = "";
+  renderUser(question);
+  const typing = botBubble(`<div class="typing"><span class="dots"><span></span><span></span><span></span></span><span id="typingText">Searching the report…</span></div>`);
+  thread.appendChild(typing);
+  scrollToBottom();
+  const t = setTimeout(() => { const el = $("typingText"); if (el) el.textContent = "Writing the answer with citations…"; }, 1800);
+
+  const entry = { id: "m" + Date.now().toString(36), question };
+  try {
+    const res = await fetch("/ask", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ question, ...pipelineOpts() }),
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      const d = body.detail;
+      throw new Error(typeof d === "string" ? d : Array.isArray(d) ? d.map((x) => x.msg).join("; ") : `HTTP ${res.status}`);
+    }
+    entry.response = body;
+  } catch (err) {
+    entry.error = err.message === "Failed to fetch" ? "Could not reach the server. Is `wb-rag serve` running?" : err.message;
+  } finally {
+    clearTimeout(t);
+    typing.remove();
+    history.push(entry);
+    save();
+    renderAnswer(entry);
+    scrollToBottom();
+    busy = false; send.disabled = !input.value.trim();
+  }
+}
+
+// ---------- wiring ----------
+$("form").addEventListener("submit", (e) => { e.preventDefault(); const q = input.value; input.value = ""; autosize(); ask(q); });
+input.addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.shiftKey && !e.isComposing) { e.preventDefault(); $("form").requestSubmit(); } });
+function autosize() { input.style.height = "auto"; input.style.height = Math.min(input.scrollHeight, 180) + "px"; send.disabled = busy || !input.value.trim(); }
+input.addEventListener("input", autosize);
+
+document.addEventListener("click", (e) => {
+  const q = e.target.closest("[data-q]");
+  if (q) { $("sidebar").classList.remove("open"); ask(q.dataset.q); return; }
+  const cite = e.target.closest("[data-cite]");
+  if (cite) {
+    e.preventDefault();
+    const el = $("cite-" + cite.dataset.cite);
+    if (el) { el.scrollIntoView({ behavior: "smooth", block: "center" }); el.classList.add("flash"); setTimeout(() => el.classList.remove("flash"), 1200); }
+    return;
+  }
+  const copy = e.target.closest("[data-copy]");
+  if (copy) {
+    const entry = history.find((h) => h.id === copy.dataset.copy);
+    const text = entry?.response?.answer || "";
+    const sources = (entry?.response?.citations || []).map((c, i) => `[${i + 1}] GEP June 2025, ${pp(c.page, c.page_end)} — ${c.section}`).join("\n");
+    navigator.clipboard?.writeText(sources ? `${text}\n\n${sources}` : text).then(() => { copy.textContent = "Copied"; setTimeout(() => (copy.textContent = "Copy answer"), 1200); });
+  }
+});
+
+$("scope").addEventListener("click", (e) => {
+  const b = e.target.closest("button[data-scope]"); if (!b) return;
+  scope = b.dataset.scope; save(); syncScope();
+});
+function syncScope() { for (const b of $("scope").querySelectorAll("button")) b.setAttribute("aria-pressed", String(b.dataset.scope === scope)); }
+
+$("newChat").addEventListener("click", () => { history = []; save(); renderAll(); input.focus(); $("sidebar").classList.remove("open"); });
+$("menu").addEventListener("click", () => $("sidebar").classList.toggle("open"));
+
+$("examples").innerHTML = EXAMPLES.map(([, q]) => `<button data-q="${esc(q)}">${esc(q)}</button>`).join("");
+
+async function checkHealth() {
+  const el = $("status");
+  try {
+    const h = await (await fetch("/health")).json();
+    if (h.status === "ok") {
+      el.innerHTML = `<span><span class="dot ok"></span>Ready · ${h.index.n_chunks} indexed chunks · ${h.outline_nodes} outline nodes</span>
+        <span>Model: ${esc(h.llm_model)}</span><span>Reranker: ${esc(h.rerank_model)}</span>
+        ${h.credentials ? "" : `<span style="color:var(--danger)">No Gemini API key configured</span>`}`;
+    } else {
+      el.innerHTML = `<span><span class="dot bad"></span>Index missing — run <code>wb-rag ingest</code></span>`;
+    }
+  } catch { el.innerHTML = `<span><span class="dot bad"></span>Server unreachable</span>`; }
+}
+
+load(); syncScope(); renderAll(); autosize(); checkHealth(); input.focus();
+</script>
+</body>
+</html>
